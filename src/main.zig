@@ -1,24 +1,40 @@
 const std = @import("std");
+const Board = @import("Board.zig");
 
 pub fn main() !void {
-    // Prints to stderr (it's a shortcut based on `std.io.getStdErr()`)
-    std.debug.print("All your {s} are belong to us.\n", .{"codebase"});
+    var b = Board{};
+    // std.debug.print("defenders:\n{s}", .{Board.setToString(b.defenders)});
+    // std.debug.print("invaders:\n{s}", .{Board.setToString(b.invaders)});
+    std.debug.print("board:\n{s}", .{b.toString()});
 
-    // stdout is for the actual output of your application, for example if you
-    // are implementing gzip, then only the compressed bytes should be sent to
-    // stdout, not any debugging messages.
-    const stdout_file = std.io.getStdOut().writer();
-    var bw = std.io.bufferedWriter(stdout_file);
-    const stdout = bw.writer();
+    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    const allocator = gpa.allocator();
+    // const moves = try b.invaderMoves(allocator);
+    // defer allocator.free(moves);
+    // for (moves) |move| {
+    //     var newBoard = b;
+    //     newBoard.playInvader(move);
+    //     std.debug.print("{}\n{s}\n", .{ move, newBoard.toString() });
+    // }
+    // std.debug.print("len: {}\n", .{moves.len});
+    var prng = std.rand.DefaultPrng.init(0);
+    const rand = prng.random();
+    for (0..100) |_| {
+        { // defender
+            const moves = try b.defenderMoves(allocator);
+            defer allocator.free(moves);
+            const idx = rand.uintLessThan(usize, moves.len);
+            const move = moves[idx];
+            b.playDefender(move);
+        }
+        { // invader
+            const moves = try b.invaderMoves(allocator);
+            defer allocator.free(moves);
+            const idx = rand.uintLessThan(usize, moves.len);
+            const move = moves[idx];
+            b.playInvader(move);
+        }
+    }
 
-    try stdout.print("Run `zig build test` to run the tests.\n", .{});
-
-    try bw.flush(); // don't forget to flush!
-}
-
-test "simple test" {
-    var list = std.ArrayList(i32).init(std.testing.allocator);
-    defer list.deinit(); // try commenting this out and see if zig detects the memory leak!
-    try list.append(42);
-    try std.testing.expectEqual(@as(i32, 42), list.pop());
+    std.debug.print("\nend board:\n{s}", .{b.toString()});
 }
