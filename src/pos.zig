@@ -1,18 +1,17 @@
 const std = @import("std");
 
 pub fn Pos(comptime maxX: comptime_int, comptime maxY: comptime_int) type {
-    const FittingInt = std.math.IntFittingRange(-1, @max(maxX, maxY));
-    const width = @as(usize, @intCast(maxX)) + 1;
-    const height = @as(usize, @intCast(maxY)) + 1;
-    const numSpaces = width * height;
-
     return struct {
+
+        // TODO: make these functions inline?
+        const width = @as(usize, @intCast(maxX)) + 1;
+        const height = @as(usize, @intCast(maxY)) + 1;
+        const numSpaces = width * height;
         x: Int,
         y: Int,
 
-        // TODO: make these functions inline?
         const Self = @This();
-        pub const Int = FittingInt;
+        pub const Int = std.math.IntFittingRange(-1, @max(maxX, maxY));
         pub fn inBounds(pos: Self) bool {
             return pos.x >= 0 and pos.x <= maxX and pos.y >= 0 and pos.y <= maxY;
         }

@@ -5,7 +5,7 @@ pub fn main() !void {
     var b = Board{};
     // std.debug.print("defenders:\n{s}", .{Board.setToString(b.defenders)});
     // std.debug.print("invaders:\n{s}", .{Board.setToString(b.invaders)});
-    std.debug.print("board:\n{s}", .{b.toString()});
+    std.debug.print("board:\n{s}", .{b.toString2D().internal});
 
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     const allocator = gpa.allocator();
@@ -36,5 +36,5 @@ pub fn main() !void {
         }
     }
 
-    std.debug.print("\nend board:\n{s}", .{b.toString()});
+    std.debug.print("\nend board:\n{s}", .{b.toString2D().internal});
 }
