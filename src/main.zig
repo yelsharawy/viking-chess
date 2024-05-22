@@ -9,14 +9,16 @@ pub fn main() !void {
 
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     const allocator = gpa.allocator();
-    // const moves = try b.invaderMoves(allocator);
+
+    // const moves = try b.defenderMoves(allocator);
     // defer allocator.free(moves);
     // for (moves) |move| {
     //     var newBoard = b;
-    //     newBoard.playInvader(move);
-    //     std.debug.print("{}\n{s}\n", .{ move, newBoard.toString() });
+    //     newBoard.playDefender(move);
+    //     std.debug.print("{}\n{s}\n", .{ move, newBoard.toString2D().internal });
     // }
     // std.debug.print("len: {}\n", .{moves.len});
+
     var prng = std.rand.DefaultPrng.init(0);
     const rand = prng.random();
     for (0..100) |_| {
@@ -35,6 +37,16 @@ pub fn main() !void {
             b.playInvader(move);
         }
     }
-
     std.debug.print("\nend board:\n{s}", .{b.toString2D().internal});
+    std.debug.print("points: {}\n", .{b.deltaPoints()});
+
+    // std.debug.print("rows(11, 11):\n{s}", .{Board.BitSet2D.rows(11, 11).toString().internal});
+    // std.debug.print("cols(11, 11):\n{s}", .{Board.BitSet2D.cols(11, 11).toString().internal});
+    // var y: isize = -9;
+    // while (y <= 9) : (y += 3) {
+    //     var x: isize = -9;
+    //     while (x <= 9) : (x += 3) {
+    //         std.debug.print("{}, {}:\n{s}", .{ x, y, Board.BitSet2D.initFull().moved(Board.Pos.init(x, y)).toString().internal });
+    //     }
+    // }
 }

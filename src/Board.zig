@@ -18,10 +18,10 @@ const Dim = enum {
 };
 const length = 11;
 const bit_set_2d = @import("bit_set_2d.zig");
-const BitSet2D = bit_set_2d.BitSet2D(length - 1, length - 1);
+pub const BitSet2D = bit_set_2d.BitSet2D(length - 1, length - 1);
 const BitSet = BitSet2D.Internal;
 const string_2d = @import("string_2d.zig");
-const String2D = string_2d.String2D(length, length);
+pub const String2D = string_2d.String2D(length, length);
 
 const blackSquares = initBlackSquares();
 fn initBlackSquares() BitSet2D {
@@ -39,14 +39,15 @@ fn initBlackSquares() BitSet2D {
 }
 
 const pos = @import("pos.zig");
-const Pos = pos.Pos(length - 1, length - 1);
+pub const Pos = pos.Pos(length - 1, length - 1);
 const center = Pos{ .x = length / 2, .y = length / 2 };
+
+const initialDefenderCount = initDefenders().count();
+const initialInvaderCount = initInvaders().count();
 
 defenders: BitSet2D = initDefenders(),
 invaders: BitSet2D = initInvaders(),
 king: ?Pos = center,
-
-defender_points: i6 = 0,
 
 inline fn at(x: usize, y: usize) usize {
     return y * length + x;
@@ -183,28 +184,29 @@ pub fn allMoves(player: *const BitSet2D, opponent: *const BitSet2D, myKing: ?Pos
     _ = myKing; // autofix
     var result: ArrayList(Move) = ArrayList(Move).init(allocator); // TODO: guess capacity
 
-    // inline for (.{ Dim.x, Dim.y }) |dim| {
-    //     inline for (.{ -1, 1 }) |d| {
-    //         const shiftAmt = comptime dim.toDelta(d).idx();
-    //         _ = shiftAmt; // autofix
-    //         var playerShifted = player;
-    //         _ = playerShifted; // autofix
-    //     }
-    // }
-    for (Pos.All) |p| {
-        if (player.isSet(p)) {
-            inline for (.{ Dim.x, Dim.y }) |dim| {
-                inline for (.{ -1, 1 }) |d| {
-                    const delta = dim.toDelta(d);
-                    var moveTo: Pos = p.add(delta);
-                    var movedBy: Pos.Int = d;
-                    while (moveTo.inBounds() and !player.isSet(moveTo) and !opponent.isSet(moveTo)) {
-                        (try result.addOne()).* = Move{ .amount = movedBy, .dir = dim, .pos = p };
-                        moveTo = moveTo.add(delta);
-                        movedBy += d;
-                    }
-                    // TODO: consider black squares & king
+    const clearSpaces = BitSet2D{
+        .internal = player.internal.unionWith(opponent.internal).complement(),
+    };
+
+    // TODO: consider black squares & king?
+    inline for (.{ Dim.x, Dim.y }) |dim| {
+        inline for (.{ -1, 1 }) |d| {
+            const delta = dim.toDelta(d);
+
+            var playerShifted = player.moved(delta);
+            playerShifted.setIntersection(clearSpaces);
+            var movedBy: Pos.Int = d;
+            while (!playerShifted.isEmpty()) {
+                var iter = playerShifted.internal.iterator(.{});
+                while (iter.next()) |idx| {
+                    const dest = Pos.All[idx];
+                    const from = dest.add(dim.toDelta(-movedBy));
+                    (try result.addOne()).* = Move{ .amount = movedBy, .dir = dim, .pos = from };
                 }
+
+                playerShifted.move(delta);
+                playerShifted.setIntersection(clearSpaces);
+                movedBy += d;
             }
         }
     }
@@ -218,4 +220,18 @@ pub fn defenderMoves(self: *const Board, allocator: Allocator) ![]Move {
 
 pub fn invaderMoves(self: *const Board, allocator: Allocator) ![]Move {
     return try allMoves(&self.invaders, &self.defenders, null, allocator);
+}
+
+pub fn defenderPoints(self: Board) usize {
+    const captured = initialInvaderCount - self.invaders.count();
+    return if (self.king) |_| captured else captured + 5;
+}
+
+pub fn invaderPoints(self: Board) usize {
+    const captured = initialInvaderCount - self.invaders.count();
+    return captured;
+}
+
+pub fn deltaPoints(self: Board) usize {
+    return self.defenderPoints() - self.invaderPoints();
 }
