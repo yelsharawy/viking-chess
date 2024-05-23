@@ -25,6 +25,7 @@ pub fn main() !void {
         { // defender
             const moves = try b.defenderMoves(allocator);
             defer allocator.free(moves);
+            if (moves.len == 0) break;
             const idx = rand.uintLessThan(usize, moves.len);
             const move = moves[idx];
             b.playDefender(move);
@@ -32,12 +33,15 @@ pub fn main() !void {
         { // invader
             const moves = try b.invaderMoves(allocator);
             defer allocator.free(moves);
+            if (moves.len == 0) break;
             const idx = rand.uintLessThan(usize, moves.len);
             const move = moves[idx];
             b.playInvader(move);
         }
     }
     std.debug.print("\nend board:\n{s}", .{b.toString2D().internal});
+    std.debug.print("defender points: {}\n", .{b.defenderPoints()});
+    std.debug.print("invader points: {}\n", .{b.invaderPoints()});
     std.debug.print("points: {}\n", .{b.deltaPoints()});
 
     // std.debug.print("rows(11, 11):\n{s}", .{Board.BitSet2D.rows(11, 11).toString().internal});

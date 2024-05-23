@@ -124,21 +124,38 @@ const Move = struct {
     fn apply(move: Move, set: *BitSet2D) void {
         set.unset(move.pos);
         const d = move.dest();
-        if (blackSquares.isSet(d)) {}
         set.set(d);
     }
 };
 
 pub fn playDefender(self: *Board, move: Move) void {
     move.apply(&self.defenders);
+    const dest = move.dest();
     if (self.king) |k| {
         if (k.eql(move.pos)) {
-            self.king = move.dest();
+            // king escape condition
+            if (blackSquares.isSet(dest) and !dest.eql(center)) {
+                self.defenders.unset(dest);
+                self.king = null;
+            } else {
+                self.king = move.dest();
+            }
+            // we don't want to check black squares again if this is the king
+            return;
         }
+    }
+    // defender suicide condition
+    if (blackSquares.isSet(dest)) {
+        self.defenders.unset(dest);
     }
 }
 pub fn playInvader(self: *Board, move: Move) void {
     move.apply(&self.invaders);
+    const dest = move.dest();
+    // invader suicide condition
+    if (blackSquares.isSet(dest)) {
+        self.invaders.unset(dest);
+    }
 }
 
 // const MoveIterator = struct {
@@ -228,10 +245,12 @@ pub fn defenderPoints(self: Board) usize {
 }
 
 pub fn invaderPoints(self: Board) usize {
-    const captured = initialInvaderCount - self.invaders.count();
+    const captured = initialDefenderCount - self.defenders.count();
     return captured;
 }
 
-pub fn deltaPoints(self: Board) usize {
-    return self.defenderPoints() - self.invaderPoints();
+pub fn deltaPoints(self: Board) isize {
+    const def: isize = @intCast(self.defenderPoints());
+    const inv: isize = @intCast(self.invaderPoints());
+    return def - inv;
 }
