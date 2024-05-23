@@ -128,6 +128,24 @@ const Move = struct {
     }
 };
 
+pub fn capture(moved: Pos, allies: *BitSet2D, opponents: *BitSet2D, king: ?Pos) void {
+    inline for (.{ Dim.x, Dim.y }) |dir| {
+        inline for (.{ -1, 1 }) |d| {
+            const delta = dir.toDelta(d);
+            const adjacent = moved.add(delta);
+            // you can't capture the king
+            if (king == null or !king.?.eql(adjacent)) {
+                if (adjacent.inBounds() and opponents.isSet(adjacent)) {
+                    const opposite = adjacent.add(delta);
+                    if (opposite.inBounds() and (allies.isSet(opposite) or blackSquares.isSet(opposite))) {
+                        opponents.unset(adjacent);
+                    }
+                }
+            }
+        }
+    }
+}
+
 pub fn playDefender(self: *Board, move: Move) void {
     move.apply(&self.defenders);
     const dest = move.dest();
@@ -147,6 +165,8 @@ pub fn playDefender(self: *Board, move: Move) void {
     // defender suicide condition
     if (blackSquares.isSet(dest)) {
         self.defenders.unset(dest);
+    } else {
+        capture(dest, &self.defenders, &self.invaders, self.king);
     }
 }
 pub fn playInvader(self: *Board, move: Move) void {
@@ -155,6 +175,8 @@ pub fn playInvader(self: *Board, move: Move) void {
     // invader suicide condition
     if (blackSquares.isSet(dest)) {
         self.invaders.unset(dest);
+    } else {
+        capture(dest, &self.invaders, &self.defenders, self.king);
     }
 }
 
