@@ -1,4 +1,5 @@
 const std = @import("std");
+const assert = std.debug.assert;
 
 const Board = @This();
 const Player = enum {
@@ -66,6 +67,14 @@ pub fn toString2D(self: Board) String2D {
         result.setChar(p, 'K');
     }
     return result;
+}
+pub fn format(
+    self: Board,
+    comptime fmt: []const u8,
+    options: std.fmt.FormatOptions,
+    out_stream: anytype,
+) !void {
+    return self.toString2D().format(fmt, options, out_stream);
 }
 
 fn initDefenders() BitSet2D {

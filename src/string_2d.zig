@@ -33,5 +33,15 @@ pub fn String2D(comptime width: comptime_int, comptime height: comptime_int) typ
                 self.internal[idx + skipDelims] = char;
             }
         }
+        pub fn format(
+            self: Self,
+            comptime fmt: []const u8,
+            options: std.fmt.FormatOptions,
+            out_stream: anytype,
+        ) !void {
+            _ = fmt; // autofix
+            _ = options; // autofix
+            return out_stream.writeAll(&self.internal);
+        }
     };
 }

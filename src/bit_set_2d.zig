@@ -99,10 +99,18 @@ pub fn BitSet2D(comptime maxX: comptime_int, comptime maxY: comptime_int) type {
             copy.move(by);
             return copy;
         }
-        pub fn toString(self: Self) String2D {
+        pub fn toString2D(self: Self) String2D {
             var result = String2D.init('0');
             result.setChars(self, '1');
             return result;
+        }
+        pub fn format(
+            self: Self,
+            comptime fmt: []const u8,
+            options: std.fmt.FormatOptions,
+            out_stream: anytype,
+        ) !void {
+            return self.toString2D().format(fmt, options, out_stream);
         }
     };
 }
