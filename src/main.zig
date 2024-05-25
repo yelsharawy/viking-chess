@@ -1,7 +1,7 @@
 const std = @import("std");
 const Board = @import("model/Board.zig");
 const WebView = @import("webview").WebView;
-const View = @import("view/view.zig");
+const View = @import("view/View.zig");
 
 pub fn main() !void {
     var b = Board{};

@@ -6,96 +6,92 @@ var gpa = std.heap.GeneralPurposeAllocator(.{}){};
 var threadSafe = std.heap.ThreadSafeAllocator{ .child_allocator = gpa.allocator() };
 const allocator = threadSafe.allocator();
 
-const Shared = struct {
-    const State = union(enum) {
-        uninitialized: void,
-        failure: anyerror,
-        active: WebView,
-        destroyed: void,
-    };
-    mutex: std.Thread.Mutex = .{},
-    on_change: std.Thread.Condition = .{},
-    state: State = .uninitialized,
-
-    pub fn setState(self: *Shared, state: State) void {
-        {
-            self.mutex.lock();
-            defer self.mutex.unlock();
-            self.state = state;
-        }
-        self.on_change.signal();
-    }
-
-    pub fn nextState(self: *Shared, prev: std.meta.Tag(State)) State {
-        self.mutex.lock();
-        defer self.mutex.unlock();
-        return self.nextStateLocked(prev);
-    }
-
-    pub fn nextStateLocked(self: *Shared, prev: std.meta.Tag(State)) State {
-        while (std.meta.activeTag(self.state) == prev) {
-            self.on_change.wait(&self.mutex);
-        }
-        return self.state;
-    }
-
-    pub fn checkErr(self: *Shared) !void {
-        self.mutex.lock();
-        defer self.mutex.unlock();
-        return self.checkErrLocked();
-    }
-
-    pub fn checkErrLocked(self: *Shared) !void {
-        switch (self.state) {
-            .failure => |e| return e,
-            else => return,
-        }
-    }
+const State = union(enum) {
+    uninitialized: void,
+    failure: anyerror,
+    active: WebView,
+    destroyed: void,
 };
 
-shared: *Shared,
+mutex: std.Thread.Mutex = .{},
+on_change: std.Thread.Condition = .{},
+state: State = .uninitialized,
 thread: std.Thread,
-// webview: WebView,
 
-const View = @This();
+pub fn setState(self: *View, state: State) void {
+    {
+        self.mutex.lock();
+        defer self.mutex.unlock();
+        self.state = state;
+    }
+    self.on_change.signal();
+}
 
-pub fn init() !View {
-    const shared = try allocator.create(Shared);
-    shared.* = Shared{};
-    const thread = try std.Thread.spawn(
-        .{ .allocator = allocator },
-        start,
-        .{shared},
-    );
+pub fn nextState(self: *View, prev: std.meta.Tag(State)) State {
+    self.mutex.lock();
+    defer self.mutex.unlock();
+    return self.nextStateLocked(prev);
+}
 
-    switch (shared.nextState(.uninitialized)) {
-        .active => return View{ .shared = shared, .thread = thread },
-        .failure => |e| {
-            allocator.destroy(shared);
-            return e;
-        },
-        else => {
-            allocator.destroy(shared);
-            return error.UnexpectedState;
-        },
+pub fn nextStateLocked(self: *View, prev: std.meta.Tag(State)) State {
+    while (std.meta.activeTag(self.state) == prev) {
+        self.on_change.wait(&self.mutex);
+    }
+    return self.state;
+}
+
+pub fn checkErr(self: *View) !void {
+    self.mutex.lock();
+    defer self.mutex.unlock();
+    return self.checkErrLocked();
+}
+
+pub fn checkErrLocked(self: *View) !void {
+    switch (self.state) {
+        .failure => |e| return e,
+        else => return,
     }
 }
 
-fn start(shared: *Shared) void {
+const View = @This();
+pub fn init() !*View {
+    const view = try allocator.create(View);
+    errdefer allocator.destroy(view);
+
+    // initializes mutex, condition, and state
+    view.* = View{ .thread = undefined };
+
+    // it'd be smart to lock, but unnecessary,
+    // since the thread won't need to access its own `Thread` through `view`
+
+    view.thread = try std.Thread.spawn(
+        .{ .allocator = allocator },
+        start,
+        .{view},
+    );
+
+    switch (view.nextState(.uninitialized)) {
+        .active => return view,
+        .failure => |e| return e,
+        else => return error.UnexpectedState,
+    }
+}
+
+fn start(view: *View) void {
     const webview = WebView.create(true, null);
     std.log.debug("setup dispatch", .{});
-    webview.dispatch(setup, shared);
+    webview.dispatch(setup, view);
     std.log.debug("gonna run!", .{});
     webview.run();
 }
 
 fn setup(webview: WebView, arg: ?*anyopaque) void {
-    const shared: *Shared = @ptrCast(@alignCast(arg.?));
-    setupErr(webview, shared) catch |e|
-        shared.setState(.{ .failure = e });
+    const view: *View = @ptrCast(@alignCast(arg.?));
+    setupErr(webview, view) catch |e|
+        view.setState(.{ .failure = e });
 }
 
-fn setupErr(webview: WebView, shared: *Shared) !void {
+fn setupErr(webview: WebView, view: *View) !void {
     std.log.debug("actually running!", .{});
     webview.setSize(720, 720, .None);
     webview.setTitle("Viking Chess");
@@ -129,33 +125,33 @@ fn setupErr(webview: WebView, shared: *Shared) !void {
         webview.setHtml(html);
     }
     std.log.debug("done setting up!", .{});
-    shared.setState(.{ .active = webview });
+    view.setState(.{ .active = webview });
 }
 
-pub fn deinit(view: View) !void {
-    // no matter what, this should join the thread & destroy the shared memory
+pub fn deinit(view: *View) !void {
+    // no matter what, this should join the thread & destroy the view memory
     defer {
         view.thread.join();
-        allocator.destroy(view.shared);
+        allocator.destroy(view);
     }
 
     // acquire lock
-    view.shared.mutex.lock();
-    defer view.shared.mutex.unlock();
+    view.mutex.lock();
+    defer view.mutex.unlock();
 
     // only dispatch teardown if currently `active`, otherwise, return error
     // (would still join on thread and destroy memory)
-    switch (view.shared.state) {
+    switch (view.state) {
         .active => |webview| {
-            webview.dispatch(teardown, view.shared);
+            webview.dispatch(teardown, view);
         },
         .failure => |e| return e,
         else => return error.UnexpectedState,
-        // there shouldn't be a way for `shared` to be allocated when `destroyed`
+        // there shouldn't be a way for `view` to be allocated when `destroyed`
     }
 
     // similarly, ensure the next state is `destroyed`, otherwise error
-    switch (view.shared.nextStateLocked(.active)) {
+    switch (view.nextStateLocked(.active)) {
         .destroyed => {},
         .failure => |e| return e,
         else => return error.UnexpectedState,
@@ -163,10 +159,10 @@ pub fn deinit(view: View) !void {
 }
 
 fn teardown(webview: WebView, arg: ?*anyopaque) void {
-    const shared: *Shared = @ptrCast(@alignCast(arg.?));
+    const view: *View = @ptrCast(@alignCast(arg.?));
     std.log.debug("teardown start", .{});
     webview.terminate();
     webview.destroy();
-    shared.setState(.destroyed);
+    view.setState(.destroyed);
     std.log.debug("teardown end, goodbye!", .{});
 }
