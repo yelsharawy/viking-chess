@@ -29,17 +29,32 @@ pub fn build(b: *std.Build) void {
     // running `zig build`).
     b.installArtifact(lib);
 
+    const webview = b.dependency("webview", .{
+        .target = target,
+        .optimize = optimize,
+    });
+
     const exe = b.addExecutable(.{
         .name = "viking-chess",
         .root_source_file = .{ .path = "src/main.zig" },
         .target = target,
         .optimize = optimize,
     });
+    exe.root_module.addImport("webview", webview.module("webview"));
+    exe.linkLibrary(webview.artifact("webviewShared"));
 
     // This declares intent for the executable to be installed into the
     // standard location when the user invokes the "install" step (the default
     // step when running `zig build`).
     b.installArtifact(exe);
+
+    // b.installFile("src/view/index.html", "index.html");
+    // b.installFile("src/view/onInit.js", "onInit.js");
+    b.installDirectory(.{
+        .source_dir = .{ .path = "src/view/static" },
+        .install_dir = .{ .custom = "static" },
+        .install_subdir = "",
+    });
 
     // This *creates* a Run step in the build graph, to be executed when another
     // step is evaluated that depends on it. The next line below will establish
@@ -57,6 +72,8 @@ pub fn build(b: *std.Build) void {
     if (b.args) |args| {
         run_cmd.addArgs(args);
     }
+
+    run_cmd.setCwd(.{ .path = b.install_path });
 
     // This creates a build step. It will be visible in the `zig build --help` menu,
     // and can be selected like this: `zig build run`

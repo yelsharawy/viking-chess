@@ -1,5 +1,7 @@
 const std = @import("std");
-const Board = @import("Board.zig");
+const Board = @import("model/Board.zig");
+const WebView = @import("webview").WebView;
+const View = @import("view/view.zig");
 
 pub fn main() !void {
     var b = Board{};
@@ -53,4 +55,25 @@ pub fn main() !void {
     //         std.debug.print("{}, {}:\n{s}", .{ x, y, Board.BitSet2D.initFull().moved(Board.Pos.init(x, y)).toString().internal });
     //     }
     // }
+
+    const view = try View.init();
+    const start = std.time.milliTimestamp();
+    while (std.time.milliTimestamp() - start < 10000) {
+        std.Thread.yield() catch |e| {
+            std.log.debug("could not yield: {}", .{e});
+            break;
+        };
+    }
+    // view.thread.join();
+    try view.deinit();
+}
+
+fn testBinding(id: [:0]const u8, req: [:0]const u8, arg: ?*anyopaque) void {
+    const w: *const WebView = @ptrCast(@alignCast(arg.?));
+    std.log.debug("binding thread id: {}", .{std.Thread.getCurrentId()});
+    std.log.debug("id: {s}", .{id});
+    std.log.debug("req: {s}", .{req});
+    w.ret(id, 0,
+        \\"Hello World!"
+    );
 }

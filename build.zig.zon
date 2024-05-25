@@ -38,6 +38,10 @@
         //    // computed. This field and `url` are mutually exclusive.
         //    .path = "foo",
         //},
+        .webview = .{
+            .url = "https://github.com/yelsharawy/webview-zig/archive/refs/heads/main.tar.gz",
+            .hash = "12200d1e9c8553f2ccf3f3e0b2e75a9efd82474db093981fb3c6ffdf4d4dd5e76b18",
+        },
     },
 
     // Specifies the set of files and directories that are included in this package.
