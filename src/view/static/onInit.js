@@ -7,11 +7,11 @@ function begin(_event) {
         }
 
         display("Test!...?");
-        // my_binded_func(195).then(
-        //     (value) => {
-        //         display(value);
-        //     }
-        // );
+        helloWorld(195).then(
+            (value) => {
+                display(value);
+            }
+        );
 
     } catch (error) {
         alert(error);

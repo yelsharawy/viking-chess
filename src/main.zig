@@ -58,22 +58,13 @@ pub fn main() !void {
 
     const view = try View.init();
     const start = std.time.milliTimestamp();
-    while (std.time.milliTimestamp() - start < 10000) {
+    while (std.time.milliTimestamp() - start < 5000) {
         std.Thread.yield() catch |e| {
             std.log.debug("could not yield: {}", .{e});
             break;
         };
     }
+    std.log.debug("deinit now", .{});
     // view.thread.join();
     try view.deinit();
-}
-
-fn testBinding(id: [:0]const u8, req: [:0]const u8, arg: ?*anyopaque) void {
-    const w: *const WebView = @ptrCast(@alignCast(arg.?));
-    std.log.debug("binding thread id: {}", .{std.Thread.getCurrentId()});
-    std.log.debug("id: {s}", .{id});
-    std.log.debug("req: {s}", .{req});
-    w.ret(id, 0,
-        \\"Hello World!"
-    );
 }
