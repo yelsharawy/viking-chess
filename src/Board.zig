@@ -2,9 +2,16 @@ const std = @import("std");
 const assert = std.debug.assert;
 
 const Board = @This();
-const Player = enum {
+pub const Player = enum {
     invaders,
     defenders,
+
+    pub fn next(player: Player) Player {
+        return switch (player) {
+            .defenders => .invaders,
+            .invaders => .defenders,
+        };
+    }
 };
 const Dim = enum {
     x,
@@ -121,7 +128,7 @@ fn initInvaders() BitSet2D {
 }
 
 // the board & invaders/defenders is known in context
-const Move = struct {
+pub const Move = struct {
     pos: Pos,
     dir: Dim,
     amount: Pos.Int,
@@ -146,7 +153,11 @@ pub fn capture(moved: Pos, allies: *BitSet2D, opponents: *BitSet2D, king: ?Pos) 
             if (king == null or !king.?.eql(adjacent)) {
                 if (adjacent.inBounds() and opponents.isSet(adjacent)) {
                     const opposite = adjacent.add(delta);
-                    if (opposite.inBounds() and (allies.isSet(opposite) or blackSquares.isSet(opposite))) {
+                    if (opposite.inBounds() and
+                        (allies.isSet(opposite) or
+                        (blackSquares.isSet(opposite)) and
+                        (king == null or !king.?.eql(opposite))))
+                    {
                         opponents.unset(adjacent);
                     }
                 }
@@ -168,25 +179,36 @@ pub fn playDefender(self: *Board, move: Move) void {
                 self.king = move.dest();
             }
             // we don't want to check black squares again if this is the king
+            // also, king can't capture
             return;
         }
     }
+
     // defender suicide condition
     if (blackSquares.isSet(dest)) {
         self.defenders.unset(dest);
-    } else {
-        capture(dest, &self.defenders, &self.invaders, self.king);
+        return;
     }
+
+    capture(dest, &self.defenders, &self.invaders, self.king);
 }
 pub fn playInvader(self: *Board, move: Move) void {
     move.apply(&self.invaders);
     const dest = move.dest();
+
     // invader suicide condition
     if (blackSquares.isSet(dest)) {
         self.invaders.unset(dest);
-    } else {
-        capture(dest, &self.invaders, &self.defenders, self.king);
+        return;
     }
+
+    capture(dest, &self.invaders, &self.defenders, self.king);
+}
+pub fn play(self: *Board, player: Player, move: Move) void {
+    return switch (player) {
+        .defenders => self.playDefender(move),
+        .invaders => self.playInvader(move),
+    };
 }
 
 // const MoveIterator = struct {
@@ -270,6 +292,13 @@ pub fn invaderMoves(self: *const Board, allocator: Allocator) ![]Move {
     return try allMoves(&self.invaders, &self.defenders, null, allocator);
 }
 
+pub fn moves(self: *const Board, player: Player, allocator: Allocator) ![]Move {
+    return switch (player) {
+        .defenders => self.defenderMoves(allocator),
+        .invaders => self.invaderMoves(allocator),
+    };
+}
+
 pub fn defenderPoints(self: Board) usize {
     const captured = initialInvaderCount - self.invaders.count();
     return if (self.king) |_| captured else captured + 5;
@@ -280,8 +309,18 @@ pub fn invaderPoints(self: Board) usize {
     return captured;
 }
 
-pub fn deltaPoints(self: Board) isize {
+pub fn points(self: Board, player: Player) usize {
+    return switch (player) {
+        .defenders => self.defenderPoints(),
+        .invaders => self.invaderPoints(),
+    };
+}
+
+pub fn deltaPoints(self: Board, player: Player) isize {
     const def: isize = @intCast(self.defenderPoints());
     const inv: isize = @intCast(self.invaderPoints());
-    return def - inv;
+    return switch (player) {
+        .defenders => def - inv,
+        .invaders => inv - def,
+    };
 }

@@ -16,7 +16,7 @@ pub fn String2D(comptime width: comptime_int, comptime height: comptime_int) typ
         pub fn init(fill: u8) Self {
             var result: Self = undefined;
             for (0..height) |y| {
-                result.internal[y * (width + 1) + width] = '\n';
+                result.internal[y * (width + 1)] = '\n';
             }
             for (Pos.All) |p| {
                 result.internal[p.idxDelim()] = fill;
@@ -30,7 +30,7 @@ pub fn String2D(comptime width: comptime_int, comptime height: comptime_int) typ
             var iter = set.internal.iterator(.{});
             while (iter.next()) |idx| {
                 const skipDelims = idx / width;
-                self.internal[idx + skipDelims] = char;
+                self.internal[idx + skipDelims + 1] = char;
             }
         }
         pub fn format(

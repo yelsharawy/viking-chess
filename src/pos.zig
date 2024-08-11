@@ -34,7 +34,7 @@ pub fn Pos(comptime maxX: comptime_int, comptime maxY: comptime_int) type {
             assert(pos.inBounds());
             const castX: usize = @intCast(pos.x);
             const castY: usize = @intCast(pos.y);
-            return castY * (width + 1) + castX;
+            return castY * (width + 1) + castX + 1;
         }
         pub fn add(pos: Self, delta: Self) Self {
             return Self{ .x = pos.x + delta.x, .y = pos.y + delta.y };

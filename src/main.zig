@@ -1,56 +1,44 @@
 const std = @import("std");
 const Board = @import("Board.zig");
+const GameTree = @import("GameTree.zig");
+
+var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+const allocator = gpa.allocator();
 
 pub fn main() !void {
-    var b = Board{};
-    // std.debug.print("defenders:\n{s}", .{Board.setToString(b.defenders)});
-    // std.debug.print("invaders:\n{s}", .{Board.setToString(b.invaders)});
-    std.debug.print("board:\n{}", .{b});
+    var gameTree = try GameTree.init(allocator, Board{}, .defenders);
+    defer {
+        gameTree.deinit();
+        _ = gpa.detectLeaks();
+    }
 
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
-    const allocator = gpa.allocator();
-
-    // const moves = try b.defenderMoves(allocator);
-    // defer allocator.free(moves);
-    // for (moves) |move| {
-    //     var newBoard = b;
-    //     newBoard.playDefender(move);
-    //     std.debug.print("{}\n{s}\n", .{ move, newBoard });
-    // }
-    // std.debug.print("len: {}\n", .{moves.len});
-
-    var prng = std.rand.DefaultPrng.init(0);
-    const rand = prng.random();
-    for (0..100) |_| {
-        { // defender
-            const moves = try b.defenderMoves(allocator);
-            defer allocator.free(moves);
-            if (moves.len == 0) break;
-            const idx = rand.uintLessThan(usize, moves.len);
-            const move = moves[idx];
-            b.playDefender(move);
-        }
-        { // invader
-            const moves = try b.invaderMoves(allocator);
-            defer allocator.free(moves);
-            if (moves.len == 0) break;
-            const idx = rand.uintLessThan(usize, moves.len);
-            const move = moves[idx];
-            b.playInvader(move);
+    std.log.debug("loop start\n", .{});
+    for (0..1_000_000) |i| {
+        const candidate = gameTree.nextCandidate() orelse {
+            std.debug.print("stopped at index: {}\n", .{i});
+            break;
+        };
+        // if (candidate.score() == -1) {
+        //     std.debug.print("candidate:{}\n", .{candidate.board});
+        //     std.debug.print("score: {}\n\n", .{candidate.score()});
+        //     return;
+        // }
+        try gameTree.expand(candidate);
+        if (i % 10_000 == 0) {
+            std.debug.print("\ni: {}\n", .{i});
+            // std.debug.print("candidate:{}\n", .{candidate.board});
+            std.debug.print("root score: {}\n", .{gameTree.root.score()});
+            std.debug.print("first child score: {}\n", .{gameTree.root.state.calculated[0].score()});
+            std.debug.print("depth: {}\n", .{candidate.depth()});
         }
     }
-    std.debug.print("\nend board:\n{}", .{b});
-    std.debug.print("defender points: {}\n", .{b.defenderPoints()});
-    std.debug.print("invader points: {}\n", .{b.invaderPoints()});
-    std.debug.print("points: {}\n", .{b.deltaPoints()});
 
-    // std.debug.print("rows(11, 11):\n{s}", .{Board.BitSet2D.rows(11, 11)});
-    // std.debug.print("cols(11, 11):\n{s}", .{Board.BitSet2D.cols(11, 11)});
-    // var y: isize = -9;
-    // while (y <= 9) : (y += 3) {
-    //     var x: isize = -9;
-    //     while (x <= 9) : (x += 3) {
-    //         std.debug.print("{}, {}:\n{s}", .{ x, y, Board.BitSet2D.initFull().moved(Board.Pos.init(x, y)).toString().internal });
+    const root_score = gameTree.root.score();
+    std.debug.print("\n\nroot score: {}\n", .{root_score});
+    // std.debug.print("level 1 contributors:\n", .{});
+    // for (gameTree.root.state.calculated) |child| {
+    //     if (child.score() == -root_score) {
+    //         std.debug.print("child: {}\n", .{child.board});
     //     }
     // }
 }
